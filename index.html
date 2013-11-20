@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Students</title>
+  <script src="lib/d3.v3.min.js"></script>
+  <script src="lib/date.js"></script>
+</head>
+<body style="background: black">
+<div id="container">
+</div>
+<script type="text/javascript">
+var dates = [];
+for(var days=-50; days<=0; days++) {
+  var d = Date.today().add(days).days();
+  for(var hours=9; hours<12; hours += 2) {
+    d.setHours(hours);
+    dates.push(d.toString('yyyy-MM-ddThh:mm'));
+  }
+}
+
+var colors2 = ['#4B5267', '#49697C', '#45818C', '#459996', '#50B19A', '#6BC897', '#90DD90', '#BEF087', '#000000'];
+
+var colors = [
+  '#2254F4', '#00B7FF', '#08DEF9', '#1DD3A7',
+  '#0DBC37', '#67EF67', '#F9BC26', '#FF6700',
+  '#D60303', '#EF3AAB', '#E6007C', '#B13198'
+];
+
+var studentList = [];
+var studentsIdList = [];
+var studentMap = {};
+var programmes = []
+dates.forEach(function(dateStr) {
+  d3.json('https://ssl.solsort.com/uccorg/activities/'+dateStr, function(data) {
+    if (data) {
+      data.activities.forEach(function(activity) {
+        activity.students.forEach(function(studentId) {
+          if (!studentMap[studentId]) {
+            studentMap[studentId] = true;
+            studentsIdList.push(studentId);
+          }
+        })
+      })
+      console.log(studentsIdList.length);
+      loadNextStudent();
+    }
+  })
+})
+
+function loadNextStudent() {
+  //if (studentList.length > 130) return
+  if (studentList.length % 5 == 0) updateStudents()
+  if (studentsIdList.length > 0) {
+    console.log('studentsIdList.length', studentsIdList.length)
+    var studentId = studentsIdList.shift();
+    d3.json('https://ssl.solsort.com/uccorg/student/'+studentId, function(studentData) {
+      studentList.push(studentData)
+      if (programmes.indexOf(studentData.programme) == -1) {
+        programmes.push(studentData.programme)
+      }
+      loadNextStudent();
+    });
+  }
+  else {
+    //console.log(programmes);
+    //console.log(studentList);
+  }
+}
+
+var svg = d3.select('#container').append('svg');
+svg.attr('width', window.innerWidth - 30)
+svg.attr('height', window.innerHeight - 30)
+
+
+
+function updateStudents() {
+  console.log('updateStudents', studentList.length)
+  var studentGroups = svg.selectAll('.student').data(studentList);
+  studentGroups.exit().remove();
+
+  var g = studentGroups.enter()
+    .append('rect')
+    .attr('class', 'student')
+    .attr('x', function(student, i) { return (i % 60) * 10})
+    .attr('y', function(student, i) { return Math.floor(i / 60) * 10})
+    .attr('width', 9)
+    .attr('height', 9)
+
+  studentList.sort(function(a, b) {
+    if (a.programme  < b.programme) return -1;
+    if (a.programme  > b.programme) return  1;
+    if (a.programme == b.programme) return 0;
+  })
+
+  studentGroups.data(studentList)
+    .attr('fill',  function(student) {
+      var idx = programmes.indexOf(student.programme);
+      console.log(idx, student.programme, colors[idx])
+      if (idx > colors.length - 1) {
+        return '#000000'
+      }
+      return colors[idx];
+    })
+
+  var programmeRect = g.append
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UCC</title>
+  <script src="lib/d3.v3.min.js"></script>
+  <script src="lib/date.js"></script>
+</head>
+<body style="background: black">
+<div id="container">
+</div>
+<script type="text/javascript">
+var dates = [];
+for(var days=-20; days<=0; days++) {
+  var d = Date.today().add(days).days();
+  for(var hours=9; hours<18; hours += 1) {
+    d.setHours(hours);
+    var dateStr = d.toString('yyyy-MM-dd');
+    dateStr += 'T'
+    if (hours < 10) dateStr += '0';
+    dateStr += hours;
+    dateStr += ':00'
+    dates.push(dateStr);
+  }
+}
+
+var colors2 = ['#4B5267', '#49697C', '#45818C', '#459996', '#50B19A', '#6BC897', '#90DD90', '#BEF087', '#000000'];
+
+var colors = [
+  '#2254F4', '#00B7FF', '#08DEF9', '#1DD3A7',
+  '#0DBC37', '#67EF67', '#F9BC26', '#FF6700',
+  '#D60303', '#EF3AAB', '#E6007C', '#B13198'
+];
+
+var studentList = [];
+var studentIdList = [];
+var studentMap = {};
+var activityList = [];
+var activityMap = {};
+var programmes = []
+var subjects = [];
+var subjectColors = [];
+var schedule = {
+  daysMap: {},
+  days: []
+}
+
+dates.forEach(function(dateStr) {
+  d3.json('https://ssl.solsort.com/uccorg/activities/'+dateStr, function(data) {
+    if (data) {
+      var date = dateStr.split('T')[0];
+      var hour = Number(dateStr.split('T')[1].split(':')[0]);
+      day = schedule.daysMap[date];
+      if (!day) {
+        day = { date: date, activities : [] }
+        schedule.days.push(day);
+        schedule.daysMap[date] = day;
+      }
+      //console.log('activity', data.activities);
+      data.activities.forEach(function(activity) {
+        activity.subjectIndex = subjects.indexOf(activity.subject);
+        if (activity.subjectIndex == -1) {
+          subjects.push(activity.subject);
+          subjectColors.push(d3.hsl(360*Math.random(), 0.5, 0.5).toString())
+          activity.subjectIndex = subjects.length - 1;
+        }
+        activity.color = subjectColors[activity.subjectIndex]
+        var activityId = activity.id;
+        if (!activityMap[activityId]) {
+          activityMap[activityId] = true;
+          activityList.push(activityId);
+          activity.hour = hour;
+          day.activities.push(activity);
+        }
+        activity.students.forEach(function(studentId) {
+          if (!studentMap[studentId]) {
+            studentMap[studentId] = true;
+            studentIdList.push(studentId);
+          }
+        })
+      })
+      console.log('unique students', studentIdList.length);
+      console.log('unique activities', activityList.length);
+      console.log('schedule', schedule)
+      renderSchedule()
+    }
+  })
+})
+
+function renderSchedule() {
+  var dayWidth = 50;
+  var daySpread = 20;
+  var activitySize = 3;
+  schedule.days.forEach(function(day, dayIndex) {
+    if (!day.rendered) {
+      day.rendered = true;
+      var t = svg.append('text')
+        .attr('class', 'activity')
+        .attr('x', dayIndex * dayWidth)
+        .attr('y', 20)
+        .text(day.date)
+        .style('font-size', '40%')
+        .attr('fill', '#FFF')
+    }
+    day.activities.forEach(function(activity) {
+      if (activity.rendered) return;
+      var start = new Date(activity.start);
+      activity.rendered = true;
+      var g = svg.append('rect')
+        .attr('class', 'activity')
+        .attr('x', dayIndex * dayWidth + Math.random() * daySpread)
+        .attr('y', -8*dayWidth + activity.hour * dayWidth + Math.random() * daySpread)
+        .attr('width', activitySize)
+        .attr('height', activitySize)
+        .attr('fill', activity.color)
+    })
+  })
+}
+
+var svg = d3.select('#container').append('svg');
+svg.attr('width', window.innerWidth - 30)
+svg.attr('height', window.innerHeight - 30)
+
+
+
+function updateStudents() {
+  console.log('updateStudents', studentList.length)
+  var studentGroups = svg.selectAll('.student').data(studentList);
+  studentGroups.exit().remove();
+
+  var g = studentGroups.enter()
+    .append('rect')
+    .attr('class', 'student')
+    .attr('x', function(student, i) { return (i % 60) * 10})
+    .attr('y', function(student, i) { return Math.floor(i / 60) * 10})
+    .attr('width', 9)
+    .attr('height', 9)
+
+  studentList.sort(function(a, b) {
+    if (a.programme  < b.programme) return -1;
+    if (a.programme  > b.programme) return  1;
+    if (a.programme == b.programme) return 0;
+  })
+
+  studentGroups.data(studentList)
+    .attr('fill',  function(student) {
+      var idx = programmes.indexOf(student.programme);
+      //console.log(idx, student.programme, colors[idx])
+      if (idx > colors.length - 1) {
+        return '#000000'
+      }
+      return colors[idx];
+    })
+
+  var programmeRect = g.append
+}
+
+</script>
+</body>
+</html>
